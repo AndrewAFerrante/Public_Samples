@@ -1,0 +1,82 @@
+---
+title: "BLS API Tutorial"
+author: "Andrew A Ferrante"
+date: "9/26/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Introduction
+
+This is a quick and easy way to pull data from the Bureau of Labor Statistics (BLS).
+
+Packages you need to get started
+
+```{r, warning=FALSE, message=FALSE}
+if (!require('blsAPI')) install.packages('blsAPI')
+if (!require('dplyr')) install.packages('dplyr')
+if (!require('ggplot2')) install.packages('ggplot2')
+if (!require("DT")) install.packages('DT')
+
+```
+
+We will be using the `blsAPI` package. [Here](https://github.com/mikeasilva/blsAPI) is where you can learn more about it.
+
+This is what the `blsAPI()` function looks like: blsAPI(payload = NA, api_version = 1, return_data_frame = FALSE). What we primarily need to focus on is the `payload` argument which is telling the function what data we want to return, and the `return_data_frame` argument which we should set to `TRUE` if we want the data as a dataframe or `FALSE` is we want JSON formatted data.
+
+### Example 1
+
+In this example we are going to pull and plot the national
+
+Payload Examples [Link to SeriesID Database](https://www.bls.gov/help/hlpforma.htm)
+
+Current Employment Statistics - CES (National) Seasonally Adjusted, Supersector, Industry, and Data Type codes can all be found in the link above
+
+Example: Series ID CEU0800000003
+
++-----------+----------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Positions | Value    | Field Name                                                                                                                                                                                                                                 |
++===========+==========+============================================================================================================================================================================================================================================+
+| 1-2       | CE       | Prefix (Indicates what survey data we want.)                                                                                                                                                                                               |
++-----------+----------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| 3         | U        | Seasonal Adjustment Code ([S - seasonally adjusted, U - not seasonally adjusted](https://download.bls.gov/pub/time.series/ce/ce.seasonal))                                                                                                 |
++-----------+----------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| 4-11      | 08000000 | Supersector and Industry Codes (First two digits are [supersector codes](https://download.bls.gov/pub/time.series/ce/ce.supersector) and the following are the [industry codes](https://download.bls.gov/pub/time.series/ce/ce.industry).) |
++-----------+----------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| 12-13     | 03       | Data Type Code ([Data type](https://download.bls.gov/pub/time.series/ce/ce.datatype): number of employees, hours, earnings, etc.)                                                                                                          |
++-----------+----------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+Pulling the data through the BLS API. Make sure to pull the data as a data frame with `return_data_frame = TRUE`!
+
+```{r}
+pull <- blsAPI('CEU0000000001', return_data_frame = TRUE)
+```
+Cleaning the data
+
+```{r}
+df <- pull %>% mutate(month = as.Date((paste(pull$periodName, '01', pull$year)), format = '%b %d %Y')) %>% #Creating the x-axis data
+   filter(pull$periodName != 'Annual') %>% #Removing the annual data
+   mutate(value = as.numeric(value)) #Creating the y-axis data
+```
+
+```{r}
+
+DT::datatable(df)
+```
+
+Plotting
+
+```{r}
+ggplot(df) + geom_line(aes(month, value)) + theme_bw()
+```
+
+```{r, include=FALSE}
+labs(title  = 'Total US Nonfarm Employment', 
+     x = NULL, 
+     y = 'Number of jobs', 
+     caption = 'Source: BLS - CES. Note: Most recent month is June 2021.') +
+      theme_bw() + scale_y_continuous(breaks = seq(from = 125000, to = 155000, by = 5000), limits = c(125000,155000), expand = c(0,0))
+```
